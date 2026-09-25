@@ -1,0 +1,543 @@
+@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+title Windows Optimizer v1.0
+
+:: ============================================================
+:: WINDOWS OPTIMIZER v1.0
+:: Compatibilidade: Windows 10 / Windows 11
+:: ============================================================
+
+set "APPNAME=Windows Optimizer"
+set "VERSION=v1.0"
+set "BASE=%ProgramData%\WindowsOptimizer"
+set "LOGDIR=%BASE%\logs"
+set "BACKUPDIR=%BASE%\backups"
+
+:: ---------- Inicializacao ----------
+if not exist "%BASE%" md "%BASE%" >nul 2>&1
+if not exist "%LOGDIR%" md "%LOGDIR%" >nul 2>&1
+if not exist "%BACKUPDIR%" md "%BACKUPDIR%" >nul 2>&1
+
+call :CHECK_ADMIN
+if errorlevel 1 exit /b
+
+call :CHECK_WINDOWS
+if errorlevel 1 exit /b
+
+for /f "tokens=1-3 delims=/" %%a in ("%date%") do set "D=%%c-%%b-%%a"
+set "T=%time::=-%"
+set "T=%T: =0%"
+set "LOGFILE=%LOGDIR%\optimizer_%D%_%T%.log"
+set "BACKUP=%BACKUPDIR%\backup_%D%_%T%"
+
+md "%BACKUP%" >nul 2>&1
+
+call :LOG "=== %APPNAME% %VERSION% iniciado ==="
+call :LOG "Sistema: %OS% | Build: %BUILD%"
+call :LOG "Backup: %BACKUP%"
+
+:MENU
+cls
+call :HEADER
+echo.
+echo  [2] Limpeza de arquivos temporarios
+echo  [3] Limpeza do Windows Update
+echo  [8] Ajustes de desempenho
+echo  [9] Informacoes do computador
+echo  [0] Sair
+echo.
+echo ============================================================
+set "OPT="
+set /p "OPT= Escolha uma opcao: "
+
+if "%OPT%"=="2" goto TEMP
+if "%OPT%"=="3" goto UPDATE
+if "%OPT%"=="8" goto PERFORMANCE
+if "%OPT%"=="9" goto INFO
+if "%OPT%"=="0" goto EXIT
+
+echo.
+echo Opcao invalida.
+timeout /t 2 >nul
+goto MENU
+
+:TEMP
+cls
+call :HEADER
+echo.
+echo ============================================================
+echo              LIMPEZA DE ARQUIVOS TEMPORARIOS
+echo ============================================================
+echo.
+echo Esta operacao ira limpar:
+echo.
+echo  [1] %TEMP%
+echo  [2] %SystemRoot%\Temp
+echo.
+echo Arquivos que estiverem em uso nao serao removidos.
+echo Documentos, fotos, videos e programas nao serao afetados.
+echo.
+call :CONFIRM "Deseja continuar com a limpeza?"
+if errorlevel 1 goto MENU
+
+call :LOG "Iniciando limpeza de arquivos temporarios."
+echo.
+echo [1/2] Limpando %TEMP%...
+del /f /s /q "%TEMP%\*" >nul 2>&1
+for /d %%D in ("%TEMP%\*") do rd /s /q "%%D" >nul 2>&1
+
+echo [2/2] Limpando %SystemRoot%\Temp...
+del /f /s /q "%SystemRoot%\Temp\*" >nul 2>&1
+for /d %%D in ("%SystemRoot%\Temp\*") do rd /s /q "%%D" >nul 2>&1
+
+call :LOG "Limpeza de temporarios concluida."
+echo.
+echo Operacao concluida.
+pause
+goto MENU
+
+:UPDATE
+cls
+call :HEADER
+echo.
+echo ============================================================
+echo                 LIMPEZA DO WINDOWS UPDATE
+echo ============================================================
+echo.
+echo Serao executados:
+echo.
+echo  1. DISM.exe /Online /Cleanup-Image /StartComponentCleanup
+echo  2. DISM.exe /Online /Cleanup-Image /StartComponentCleanup /ResetBase
+echo.
+echo IMPORTANTE:
+echo O /ResetBase remove versoes substituidas dos componentes.
+echo Depois dessa etapa, atualizacoes substituidas nao poderao
+echo ser desinstaladas usando essas versoes antigas.
+echo.
+echo O processo pode levar varios minutos.
+echo Nao desligue o computador durante a operacao.
+echo.
+call :CONFIRM "Deseja executar a limpeza?"
+if errorlevel 1 goto MENU
+
+call :LOG "Iniciando DISM StartComponentCleanup."
+echo.
+echo ============================================================
+echo ETAPA 1/2
+echo ============================================================
+DISM.exe /Online /Cleanup-Image /StartComponentCleanup
+set "RC=%errorlevel%"
+call :LOG "StartComponentCleanup retornou codigo %RC%."
+
+if not "%RC%"=="0" (
+    echo.
+    echo A primeira etapa retornou o codigo %RC%.
+    echo A segunda etapa NAO sera executada.
+    echo.
+    pause
+    goto MENU
+)
+
+echo.
+echo ============================================================
+echo ETAPA 2/2 - RESETBASE
+echo ============================================================
+DISM.exe /Online /Cleanup-Image /StartComponentCleanup /ResetBase
+set "RC=%errorlevel%"
+call :LOG "StartComponentCleanup ResetBase retornou codigo %RC%."
+
+echo.
+if "%RC%"=="0" (
+    echo Limpeza do Windows Update concluida com sucesso.
+) else (
+    echo A operacao terminou com codigo %RC%.
+    echo Consulte o log:
+    echo %LOGFILE%
+)
+pause
+goto MENU
+
+:PERFORMANCE
+cls
+call :HEADER
+echo.
+echo ============================================================
+echo                  AJUSTES DE DESEMPENHO
+echo ============================================================
+echo.
+echo O COMBO desta versao realizara:
+echo.
+echo  [1] Ajustar manutencao automatica
+echo  [2] Configurar alto desempenho quando conectado a tomada
+echo  [3] Parar e desativar o servico SysMain
+echo  [4] Configurar efeitos visuais
+echo  [5] Otimizar a unidade C: usando o metodo apropriado
+echo.
+echo O programa criara um backup das configuracoes antes
+echo das alteracoes.
+echo.
+call :CONFIRM "Deseja executar o combo de desempenho?"
+if errorlevel 1 goto MENU
+
+call :BACKUP_POWER
+call :BACKUP_SYSMAIN
+call :BACKUP_VISUAL
+call :BACKUP_MAINTENANCE
+
+call :PERF_MAINTENANCE
+call :PERF_POWER
+call :PERF_SYSMAIN
+call :PERF_VISUAL
+call :PERF_DISK
+
+echo.
+echo ============================================================
+echo                 COMBO FINALIZADO
+echo ============================================================
+echo.
+echo Backup:
+echo %BACKUP%
+echo.
+echo Log:
+echo %LOGFILE%
+echo.
+echo Algumas alteracoes podem exigir reinicializacao.
+pause
+goto MENU
+
+:PERF_MAINTENANCE
+echo.
+echo [1/5] Ajustando manutencao automatica...
+
+:: A tarefa ScheduledDefrag continua habilitada.
+:: Desativamos somente a tarefa de manutencao automatica do TaskScheduler.
+schtasks /Query /TN "\Microsoft\Windows\TaskScheduler\Maintenance Configurator" >nul 2>&1
+if "%errorlevel%"=="0" (
+    schtasks /Change /TN "\Microsoft\Windows\TaskScheduler\Maintenance Configurator" /Disable >nul 2>&1
+    call :LOG "Maintenance Configurator desativada."
+) else (
+    call :LOG "Maintenance Configurator nao encontrada. Nenhuma alteracao feita."
+)
+
+schtasks /Query /TN "\Microsoft\Windows\TaskScheduler\Regular Maintenance" >nul 2>&1
+if "%errorlevel%"=="0" (
+    schtasks /Change /TN "\Microsoft\Windows\TaskScheduler\Regular Maintenance" /Disable >nul 2>&1
+    call :LOG "Regular Maintenance desativada."
+) else (
+    call :LOG "Regular Maintenance nao encontrada. Nenhuma alteracao feita."
+)
+exit /b
+
+:PERF_POWER
+echo [2/5] Configurando plano de energia...
+
+set "HP_GUID=8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
+powercfg /list | findstr /i "%HP_GUID%" >nul
+if errorlevel 1 (
+    call :LOG "Plano High Performance nao encontrado; tentando duplicar o plano."
+    powercfg -duplicatescheme %HP_GUID% >nul 2>&1
+)
+
+powercfg /setactive %HP_GUID% >nul 2>&1
+if errorlevel 1 (
+    call :LOG "Nao foi possivel ativar o plano High Performance."
+) else (
+    call :LOG "Plano High Performance ativado."
+)
+
+:: Em notebook, deixamos o modo de bateria no plano Balanced se disponivel.
+:: O Windows utiliza AC/DC dentro do plano; nao forçamos o perfil de bateria.
+call :LOG "O plano High Performance foi aplicado ao sistema. O comportamento AC/DC fica sob controle do Windows."
+
+exit /b
+
+:PERF_SYSMAIN
+echo [3/5] Ajustando SysMain...
+
+sc query SysMain >nul 2>&1
+if errorlevel 1 (
+    call :LOG "Servico SysMain nao encontrado."
+    exit /b
+)
+
+net stop SysMain /y >nul 2>&1
+sc config SysMain start= disabled >nul 2>&1
+
+sc query SysMain | findstr /i "STATE" >> "%LOGFILE%" 2>&1
+sc qc SysMain >> "%LOGFILE%" 2>&1
+
+call :LOG "SysMain configurado como Disabled."
+exit /b
+
+:PERF_VISUAL
+echo [4/5] Configurando efeitos visuais...
+
+:: Configuracoes principais de desempenho visual.
+:: Mantemos:
+:: - suavizacao de fontes
+:: - esmaecimento de janelas
+:: - miniaturas
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v IconsOnly /t REG_DWORD /d 0 /f >nul
+reg add "HKCU\Control Panel\Desktop" /v FontSmoothing /t REG_SZ /d 2 /f >nul
+reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012038010000000 /f >nul
+
+:: Ativa miniaturas no Explorer.
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ShowThumbnails /t REG_DWORD /d 1 /f >nul
+
+call :LOG "Configuracoes de efeitos visuais aplicadas."
+call :LOG "Observacao: UserPreferencesMask pode variar conforme a versao do Windows."
+exit /b
+
+:PERF_DISK
+echo [5/5] Otimizando unidade C:...
+call :LOG "Iniciando defrag C: /O."
+defrag C: /O /U /V
+set "RC=%errorlevel%"
+call :LOG "defrag C: /O retornou codigo %RC%."
+exit /b
+
+:BACKUP_POWER
+powercfg /getactivescheme > "%BACKUP%\power_active.txt" 2>&1
+powercfg /list > "%BACKUP%\power_plans.txt" 2>&1
+call :LOG "Backup dos planos de energia criado."
+exit /b
+
+:BACKUP_SYSMAIN
+sc query SysMain > "%BACKUP%\sysmain_query.txt" 2>&1
+sc qc SysMain > "%BACKUP%\sysmain_config.txt" 2>&1
+call :LOG "Backup do SysMain criado."
+exit /b
+
+:BACKUP_VISUAL
+reg export "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "%BACKUP%\explorer_advanced.reg" /y >nul 2>&1
+reg export "HKCU\Control Panel\Desktop" "%BACKUP%\desktop.reg" /y >nul 2>&1
+call :LOG "Backup das configuracoes visuais criado."
+exit /b
+
+:BACKUP_MAINTENANCE
+schtasks /Query /TN "\Microsoft\Windows\TaskScheduler\Maintenance Configurator" /FO LIST /V > "%BACKUP%\maintenance_configurator.txt" 2>&1
+schtasks /Query /TN "\Microsoft\Windows\TaskScheduler\Regular Maintenance" /FO LIST /V > "%BACKUP%\regular_maintenance.txt" 2>&1
+call :LOG "Backup das tarefas de manutencao criado."
+exit /b
+
+:INFO
+cls
+call :HEADER
+echo.
+echo ============================================================
+echo                INFORMACOES DO COMPUTADOR
+echo ============================================================
+echo.
+echo [1] Sistema
+echo [2] CPU
+echo [3] Memoria
+echo [4] GPU
+echo [5] Discos
+echo [6] Rede
+echo [7] Abrir MSINFO32
+echo [8] Gerar relatorio completo
+echo [0] Voltar
+echo.
+set "I="
+set /p "I= Escolha: "
+
+if "%I%"=="1" goto INFO_SYSTEM
+if "%I%"=="2" goto INFO_CPU
+if "%I%"=="3" goto INFO_RAM
+if "%I%"=="4" goto INFO_GPU
+if "%I%"=="5" goto INFO_DISK
+if "%I%"=="6" goto INFO_NET
+if "%I%"=="7" goto INFO_MSINFO
+if "%I%"=="8" goto INFO_REPORT
+if "%I%"=="0" goto MENU
+goto INFO
+
+:INFO_SYSTEM
+cls
+echo ============================================================
+echo SISTEMA
+echo ============================================================
+systeminfo | findstr /B /C:"OS Name" /C:"OS Version" /C:"System Type" /C:"System Manufacturer" /C:"System Model" /C:"Total Physical Memory"
+echo.
+echo Nome do computador: %COMPUTERNAME%
+echo Usuario: %USERNAME%
+echo.
+pause
+goto INFO
+
+:INFO_CPU
+cls
+echo ============================================================
+echo CPU
+echo ============================================================
+powershell -NoProfile -Command "Get-CimInstance Win32_Processor | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed | Format-List"
+pause
+goto INFO
+
+:INFO_RAM
+cls
+echo ============================================================
+echo MEMORIA
+echo ============================================================
+powershell -NoProfile -Command "Get-CimInstance Win32_PhysicalMemory | Select-Object Manufacturer,PartNumber,Capacity,Speed | Format-Table -AutoSize"
+echo.
+powershell -NoProfile -Command "$r=Get-CimInstance Win32_ComputerSystem; 'Total: {0:N2} GB' -f ($r.TotalPhysicalMemory/1GB)"
+pause
+goto INFO
+
+:INFO_GPU
+cls
+echo ============================================================
+echo GPU
+echo ============================================================
+powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion,VideoModeDescription | Format-List"
+pause
+goto INFO
+
+:INFO_DISK
+cls
+echo ============================================================
+echo DISCOS
+echo ============================================================
+powershell -NoProfile -Command "Get-CimInstance Win32_DiskDrive | Select-Object Model,MediaType,Size,SerialNumber | Format-Table -AutoSize"
+echo.
+powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Select-Object DeviceID,FileSystem,@{N='TotalGB';E={[math]::Round($_.Size/1GB,2)}},@{N='LivreGB';E={[math]::Round($_.FreeSpace/1GB,2)}} | Format-Table -AutoSize"
+pause
+goto INFO
+
+:INFO_NET
+cls
+echo ============================================================
+echo REDE
+echo ============================================================
+ipconfig /all
+pause
+goto INFO
+
+:INFO_MSINFO
+start "" msinfo32.exe
+goto INFO
+
+:INFO_REPORT
+cls
+echo ============================================================
+echo GERANDO RELATORIO
+echo ============================================================
+set "REPORT=%LOGDIR%\system_report_%D%_%T%.txt"
+echo Gerando: %REPORT%
+echo.
+(
+echo ============================================================
+echo WINDOWS OPTIMIZER - RELATORIO DO SISTEMA
+echo ============================================================
+echo Data: %date% %time%
+echo Computador: %COMPUTERNAME%
+echo Usuario: %USERNAME%
+echo.
+echo ===== SYSTEMINFO =====
+systeminfo
+echo.
+echo ===== CPU =====
+powershell -NoProfile -Command "Get-CimInstance Win32_Processor | Format-List *"
+echo.
+echo ===== MEMORIA =====
+powershell -NoProfile -Command "Get-CimInstance Win32_PhysicalMemory | Format-List *"
+echo.
+echo ===== GPU =====
+powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Format-List *"
+echo.
+echo ===== DISCOS =====
+powershell -NoProfile -Command "Get-CimInstance Win32_DiskDrive | Format-List *"
+echo.
+echo ===== VOLUMES =====
+powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Format-List *"
+echo.
+echo ===== REDE =====
+ipconfig /all
+echo.
+echo ===== POWER =====
+powercfg /list
+powercfg /getactivescheme
+echo.
+echo ===== SYSMAIN =====
+sc query SysMain
+sc qc SysMain
+) > "%REPORT%" 2>&1
+
+echo.
+echo Relatorio criado:
+echo %REPORT%
+call :LOG "Relatorio criado em %REPORT%."
+pause
+goto INFO
+
+:CHECK_ADMIN
+net session >nul 2>&1
+if errorlevel 1 (
+    cls
+    echo ============================================================
+    echo              PERMISSAO DE ADMINISTRADOR
+    echo ============================================================
+    echo.
+    echo Este programa precisa ser executado como Administrador.
+    echo.
+    echo Tentando solicitar elevacao...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b 1
+)
+exit /b 0
+
+:CHECK_WINDOWS
+for /f "tokens=2 delims==" %%A in ('wmic os get Caption /value 2^>nul ^| find "="') do set "WINNAME=%%A"
+for /f "tokens=2 delims==" %%A in ('wmic os get BuildNumber /value 2^>nul ^| find "="') do set "BUILD=%%A"
+if not defined WINNAME (
+    for /f "delims=" %%A in ('powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).Caption"') do set "WINNAME=%%A"
+)
+if not defined BUILD (
+    for /f "delims=" %%A in ('powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).BuildNumber"') do set "BUILD=%%A"
+)
+echo %WINNAME% | findstr /i "Windows 10 Windows 11" >nul
+if errorlevel 1 (
+    cls
+    echo Sistema operacional nao suportado.
+    echo Detectado: %WINNAME%
+    pause
+    exit /b 1
+)
+set "OS=%WINNAME%"
+exit /b 0
+
+:CONFIRM
+echo.
+set "ANS="
+set /p "ANS=%~1 [S/N]: "
+if /i "%ANS%"=="S" exit /b 0
+exit /b 1
+
+:HEADER
+echo ============================================================
+echo              %APPNAME% %VERSION%
+echo ============================================================
+echo Sistema: %OS%
+echo Build:   %BUILD%
+echo ============================================================
+exit /b
+
+:LOG
+>>"%LOGFILE%" echo [%date% %time%] %~1
+exit /b
+
+:EXIT
+call :LOG "=== Windows Optimizer encerrado ==="
+cls
+echo.
+echo Windows Optimizer encerrado.
+echo.
+echo Logs:
+echo %LOGDIR%
+echo.
+echo Backups:
+echo %BACKUPDIR%
+echo.
+endlocal
+exit /b 0
