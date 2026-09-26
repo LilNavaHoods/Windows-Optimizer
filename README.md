@@ -76,3 +76,31 @@ Após o uso do script, você pode reativar o recurso se desejar.
 ### 📁 Estrutura de arquivos
 
 O script cria automaticamente:
+%ProgramData%\WindowsOptimizer
+
+├── logs\          → Histórico de ações
+└── backups\       → Backups das configurações alteradas
+
+
+---
+
+### 📜 Histórico de Versões
+
+As versões anteriores estão disponíveis em formato `.txt` para consulta:
+
+- `Windows_Optimizer_v1.txt`
+- `Windows_Optimizer_v2.txt`
+- `Windows_Optimizer_v3.1.txt`
+
+Esses arquivos servem como histórico de desenvolvimento e referência.
+
+---
+
+### 📄 Licença
+
+Este projeto é de código aberto. Sinta-se livre para modificar e distribuir.
+
+---
+
+**Desenvolvido para uso pessoal e educacional.**  
+Use com responsabilidade.
